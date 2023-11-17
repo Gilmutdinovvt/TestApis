@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TestApi.HingfireServices;
 using WebApplication7.Context;
 using WebApplication7.Models;
 
@@ -15,26 +16,25 @@ namespace WebApplication7.Controllers
         [HttpPost]
         public async Task<IActionResult> Create()
         {
-            TASKS tasks = new TASKS()
+            TASKS task = new TASKS()
             {
                 Guid = Guid.NewGuid(),
                 Status = "Created"
             };
-            await _context.TASKS.AddAsync(tasks);
+            await _context.TASKS.AddAsync(task);
             await  _context.SaveChangesAsync();
-            return  AcceptedAtAction(nameof(Create), new { Guid = tasks.Guid });   
+            var jobId= BackgroundJob.Enqueue<IHangFireServiceManagment>(x=>x.UpdateDatabase(task));
+            return AcceptedAtAction(nameof(Create), new { task.Guid });   
         }
         [HttpGet("Guid")]
         public async Task<IActionResult> Get(Guid guid)
         {
-            var tasks=_context.TASKS.FirstOrDefaultAsync(t => t.Guid == guid);
+            var tasks= await _context.TASKS.FirstOrDefaultAsync(t => t.Guid == guid);
             if (guid.GetType() != typeof(Guid))
                 {
                 return  StatusCode(400);
             }
             return tasks == null ? NotFound() : Ok(tasks.Status);
         }
-  
-
     }
 }
